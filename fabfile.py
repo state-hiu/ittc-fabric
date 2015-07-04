@@ -8,6 +8,8 @@ import datetime
 
 from servers import ITTC_SERVERS
 
+from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template
+
 global target
 target = None
 
@@ -83,34 +85,17 @@ def inspect(*args):
 
 
 @task
-def add_cache(*args):
+def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _add_cache()
+            _add_cache(n=n, d=d, ip=ip, l=l, u=u, p=p)
     else:
         print "Need to set target first."
 
 
 #############################################################
 # The Private API
-
-def _build_env(t):
-    e = {
-        'user': target['user'],
-        'hosts': [target['host']],
-        'host_string': target['host'],
-        'key_filename': target['ident'],
-    }
-    return e
-
-
-def _print_target(target):
-    print "Connecting to server..."
-    print "User: "+target['user']
-    print "Host: "+target['host']
-    print "#######################"
-    print ""
 
 def _inspect():
     _lsb_release()
@@ -140,45 +125,28 @@ def _restart_geoserver():
     sudo('/etc/init.d/tomcat7 restart')
 
 
-def _add_cache():
-    data = None
-    with open ('templates/tilecache.cfg', "r") as f:
-        data = f.read()
+def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
+    data = _load_template('tilecache.cfg')
     if data:
-        print "Instructions:"
-        print "Fill in the details for the tile cache to add."
-        print "You'll be given a chance to confirm."
 
-        print "Name:",
-        name = raw_input()
-        print "Description:",
-        description = raw_input()
-        print "IP Address:",
-        ip = raw_input()
-        print "Layers:",
-        layers = raw_input()
-        print "User:",
-        user = raw_input()
-        print "Password:",
-        password = raw_input()
-        print "#######################"
-        data = data.replace("{{name}}", name)
-        data = data.replace("{{description}}", description)
+        n = _request_input("Name", n, True)
+        d = _request_input("Description", d, True)
+        ip = _request_input("IP Address", ip, True)
+        l = _request_input("Layers", l, True)
+        u = _request_input("User", u, True)
+        p = _request_input("Password", p, True)
+
+        data = data.replace("{{name}}", n)
+        data = data.replace("{{description}}", d)
         data = data.replace("{{ip}}", ip)
-        data = data.replace("{{layers}}", layers)
-        data = data.replace("{{user}}", user)
-        data = data.replace("{{password}}", password)
+        data = data.replace("{{layers}}", l)
+        data = data.replace("{{user}}", u)
+        data = data.replace("{{password}}", p)
 
+        print "Data..."
         print data
-        print "Continue (y/n)?",
-        confirm = raw_input()
 
-        if confirm and confirm.lower() == "y":
-            print "Confirmed"
-            for line in data.split("\n"):
-                t = "echo '{line}' >> {tc}"
-                c = t.format(line=line.replace('"','\"'), tc='/etc/tilecache.cfg')
-                sudo(c)
-
+        if _request_continue():
+            _append_to_file(data.split("\n"), "/etc/filecache.cfg")
             _restart_apache()
