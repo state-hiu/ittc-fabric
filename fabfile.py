@@ -3,12 +3,13 @@ from fabric.api import env, sudo, run, cd, local, put, prefix, roles, execute, t
 from fabric.api import settings as fab_settings
 from fabric.context_managers import settings, hide
 from fabric.contrib.files import sed
+from fabtools.files import is_file, is_dir, md5sum
 from subprocess import Popen, PIPE
 import datetime
-
+import hashlib
 from servers import ITTC_SERVERS
 
-from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template
+from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template, _calc_md5sum
 
 global target
 target = None
@@ -94,6 +95,15 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
         print "Need to set target first."
 
 
+@task
+def upload_file(local=None, drop=None):
+    global target
+    if target:
+        with fab_settings(** _build_env(target)):
+            _upload_file(local=local, drop=drop)
+    else:
+        print "Need to set target first."
+
 #############################################################
 # The Private API
 
@@ -150,3 +160,20 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
         if _request_continue():
             _append_to_file(data.split("\n"), "/etc/filecache.cfg")
             _restart_apache()
+
+
+def _upload_file(local, drop):
+
+    local = _request_input("Local File Path", local, True)
+    drop = _request_input("Remote Drop Folder", drop, True)
+    if _request_continue():
+        sudo("[ -d {d} ] || mkdir {d}".format(d=drop))
+        md5 = _calc_md5sum(local)
+        print "Current MD5 has: "+md5
+        remote_files = put(local, drop, mode='0444', use_sudo=True)
+        if remote_files:
+            for f in remote_files:
+                print "MD5 for "+f+": "+md5sum(f)
+            print "Files uploaded"
+        else:
+            print "Not files uploaded"

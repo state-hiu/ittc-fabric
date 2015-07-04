@@ -1,6 +1,8 @@
 from fabric.api import env, sudo, run, cd, local, put, prefix, roles, execute, task
 from fabric.api import settings as fab_settings
 
+import hashlib
+
 def _build_env(target):
     e = {
         'user': target['user'],
@@ -15,6 +17,7 @@ def _print_target(target):
     print "Connecting to server..."
     print "User: "+target['user']
     print "Host: "+target['host']
+    print "ssh "+target['user']+'@'+target['host']+' -i '+target['ident']
     print "#######################"
     print ""
 
@@ -62,3 +65,7 @@ def _append_to_file(lines, filename):
         t = "echo '{line}' >> {f}"
         c = t.format(line=line.replace('"','\"'), f=filename)
         sudo(c)
+
+
+def _calc_md5sum(filename):
+    return hashlib.md5(open(filename).read()).hexdigest()
