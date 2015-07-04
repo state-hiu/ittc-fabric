@@ -4,6 +4,7 @@ from fabric.api import settings as fab_settings
 from fabric.context_managers import settings, hide
 from fabric.contrib.files import sed
 from fabtools.files import is_file, is_dir, md5sum
+from glob import glob
 from subprocess import Popen, PIPE
 import datetime
 import hashlib
@@ -96,11 +97,11 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 
 @task
-def upload_file(local=None, drop=None):
+def upload_files(local=None, drop=None, tries=None, user=None, group=None):
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_file(local=local, drop=drop)
+            _upload_files(local=local, drop=drop, tries=tries, user=user, group=group)
     else:
         print "Need to set target first."
 
@@ -158,22 +159,60 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
         print data
 
         if _request_continue():
-            _append_to_file(data.split("\n"), "/etc/filecache.cfg")
+            _append_to_file(data.split("\n"), "/etc/tilecache.cfg")
             _restart_apache()
 
 
-def _upload_file(local, drop):
+def _upload_files(local=None, drop=None, tries=None, user=None, group=None):
 
     local = _request_input("Local File Path", local, True)
     drop = _request_input("Remote Drop Folder", drop, True)
+    tries = _request_input("Tries for each file", tries, True)
+    user = _request_input("User", user, True)
+    group = _request_input("Group", group, True)
+
     if _request_continue():
-        sudo("[ -d {d} ] || mkdir {d}".format(d=drop))
-        md5 = _calc_md5sum(local)
-        print "Current MD5 has: "+md5
-        remote_files = put(local, drop, mode='0444', use_sudo=True)
-        if remote_files:
-            for f in remote_files:
-                print "MD5 for "+f+": "+md5sum(f)
-            print "Files uploaded"
+        sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
+        local_files = glob(local)
+        md5_list = []
+        for f in local_files:
+            md5_list.append(_calc_md5sum(f))
+
+        print "Local Files"
+        for i in range(len(local_files)):
+            print local_files[i]+": "+md5_list[i]
+
+        for i in range(len(local_files)):
+            print "Uploading "+local_files[i]+"..."
+            success = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group)
+            if not success:
+                print "Aborted.  Could not upload "+local_files[i]+"."
+
+
+def _upload_file(local_file, drop, md5_local, tries_left, user, group):
+    remote_files = put(local_file, drop, mode='0444', use_sudo=True)
+    if len(remote_files) == 1:
+        rf = remote_files[0]
+        if rf in remote_files.failed:
+            if tries_left == 0:
+                print "Upload failed... aborting..."
+                return False
+            else:
+                print "Upload failed... trying again.  "+str(tries_left)+" tries left."
+                return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group)
         else:
-            print "Not files uploaded"
+            md5_remote = md5sum(rf)
+            if md5_local == md5_remote:
+                print "MD5 match.  Uploaded succeeded."
+                sudo('chown {u}:{g} {f}'.format(u=user, g=group, f=rf))
+                return True
+            else:
+                print "MD5 mismatch."
+                print "Local: "+md5_local
+                print "Remote: "+md5_remote
+                if tries_left == 0:
+                    print "Upload failed... aborting..."
+                    return False
+                else:
+                    print "Upload failed... trying again.  "+str(tries_left)+" tries left."
+                    return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group)

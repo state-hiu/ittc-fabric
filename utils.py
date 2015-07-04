@@ -14,9 +14,11 @@ def _build_env(target):
 
 
 def _print_target(target):
-    print "Connecting to server..."
+    print "Connecting to server ..."
+    print "Name: "+target['name']
     print "User: "+target['user']
     print "Host: "+target['host']
+    print "-------"
     print "ssh "+target['user']+'@'+target['host']+' -i '+target['ident']
     print "#######################"
     print ""
@@ -68,4 +70,7 @@ def _append_to_file(lines, filename):
 
 
 def _calc_md5sum(filename):
-    return hashlib.md5(open(filename).read()).hexdigest()
+    md5 = None
+    with open (filename, "r") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
+    return md5
