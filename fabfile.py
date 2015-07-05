@@ -10,7 +10,12 @@ import datetime
 import hashlib
 from servers import ITTC_SERVERS
 
-from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template, _calc_md5sum
+from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template, _calc_md5sum, _notify_file_uploaded
+
+try:
+    from aws import AWS_SETTINGS
+except:
+    print "Could not import aws.py"
 
 global target
 target = None
@@ -97,11 +102,11 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 
 @task
-def upload_files(local=None, drop=None, tries=None, user=None, group=None):
+def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None):
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(local=local, drop=drop, tries=tries, user=user, group=group)
+            _upload_files(local=local, drop=drop, tries=tries, user=user, group=group, topic=topic)
     else:
         print "Need to set target first."
 
@@ -163,13 +168,15 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
             _restart_apache()
 
 
-def _upload_files(local=None, drop=None, tries=None, user=None, group=None):
+def _upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None):
 
     local = _request_input("Local File Path", local, True)
     drop = _request_input("Remote Drop Folder", drop, True)
     tries = _request_input("Tries for each file", tries, True)
     user = _request_input("User", user, True)
     group = _request_input("Group", group, True)
+
+    topic = _request_input("Notify Topic", topic, False, options=AWS_SETTINGS['topics'])
 
     if _request_continue():
         sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
@@ -184,8 +191,11 @@ def _upload_files(local=None, drop=None, tries=None, user=None, group=None):
 
         for i in range(len(local_files)):
             print "Uploading "+local_files[i]+"..."
-            success = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group)
-            if not success:
+            rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group)
+            if rf:
+                if topic:
+                    _notify_file_uploaded(topic, local_files[i], rf, 'host')
+            else:
                 print "Aborted.  Could not upload "+local_files[i]+"."
 
 
@@ -196,7 +206,7 @@ def _upload_file(local_file, drop, md5_local, tries_left, user, group):
         if rf in remote_files.failed:
             if tries_left == 0:
                 print "Upload failed... aborting..."
-                return False
+                return None
             else:
                 print "Upload failed... trying again.  "+str(tries_left)+" tries left."
                 return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group)
@@ -205,14 +215,14 @@ def _upload_file(local_file, drop, md5_local, tries_left, user, group):
             if md5_local == md5_remote:
                 print "MD5 match.  Uploaded succeeded."
                 sudo('chown {u}:{g} {f}'.format(u=user, g=group, f=rf))
-                return True
+                return rf
             else:
                 print "MD5 mismatch."
                 print "Local: "+md5_local
                 print "Remote: "+md5_remote
                 if tries_left == 0:
                     print "Upload failed... aborting..."
-                    return False
+                    return None
                 else:
                     print "Upload failed... trying again.  "+str(tries_left)+" tries left."
                     return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group)

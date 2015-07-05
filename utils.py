@@ -3,6 +3,13 @@ from fabric.api import settings as fab_settings
 
 import hashlib
 
+import boto
+
+try:
+    from aws import AWS_SETTINGS
+except:
+    print "Could not import aws.py"
+
 def _build_env(target):
     e = {
         'user': target['user'],
@@ -36,11 +43,17 @@ def _load_template(filename):
     return data
 
 
-def _request_input(question, value, required):
+def _request_input(question, value, required, options=None):
     if value:
         return value
     else:
-        print question+":",
+        if options:
+            print question+":"
+            for opt in options:
+                print "Option: "+opt
+            print "Selection:",
+        else:
+            print question+":",
         if required:
             value = None
             while not value:
@@ -48,9 +61,20 @@ def _request_input(question, value, required):
                 if not value:
                     print "Value required.  Please try again.  Ctrl+C to cancel."
                     print question+":",
+                elif options and (not value in options):
+                    print "Must select one of the options.  Please try again.  Ctrl+C to cancel."
+                    print question+":",
             return value
         else:
-            return raw_input()
+            value = raw_input()
+            if not value:
+                return value
+            else:
+                if value in options:
+                    return value
+                else:
+                    print "Must select one of the options.  Please try again.  Ctrl+C to cancel."
+                    print question+":",
 
 
 def _request_continue():
@@ -74,3 +98,18 @@ def _calc_md5sum(filename):
     with open (filename, "r") as f:
         md5 = hashlib.md5(f.read()).hexdigest()
     return md5
+
+
+def _notify_file_uploaded(topic, lf, rf, host):
+    msg = "File "+lf+" uploaded to "+rf+" on "+host+"."
+    _notify_sns(topic, msg)
+
+
+def _notify_error(topic, error):
+    _notify_sns(topic, error)
+
+
+def _notify_sns(topic, msg):
+    sns = boto.connect_sns(aws_access_key_id=AWS_SETTINGS['security']['AWS_ACCESS_KEY_ID'], aws_secret_access_key=AWS_SETTINGS['security']['AWS_SECRET_ACCESS_KEY'])
+    if topic in AWS_SETTINGS['topics']:
+        res = sns.publish(AWS_SETTINGS['topics'][topic], msg)
