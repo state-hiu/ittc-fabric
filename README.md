@@ -42,6 +42,22 @@ IITC = {
 }
 ```
 
+### AWS
+
+If you'd like to receive notifications after tasks are completed via AWS Simple Notification Service (SNS), you need to create a `aws.py` file in the same directory as below.
+
+```
+AWS_SETTINGS = {
+    "security": {
+        "AWS_ACCESS_KEY_ID": "XXX",
+        "AWS_SECRET_ACCESS_KEY": "XXX+XXX"
+    },
+    "topics": {
+        "test":"arn:aws:sns:us-XXX-X:XXX:XXX"
+    }
+}
+```
+
 ## Usage
 
 Cd into the main directory with the `fabfile.py`.  When you call fab, start with the name of the server (frontdoor, tilejet, tileserver_frontend, and tileserver_backend) so that the host and identity key are loaded automatically from `servers.py`.
