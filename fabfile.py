@@ -15,7 +15,7 @@ from utils import _build_env, _print_target, _cron_command, _request_input, _req
 try:
     from aws import AWS_SETTINGS
 except:
-    print "Could not import aws.py"
+    print "Error: Could not import local aws module (aws.py)."
 
 global target
 target = None
@@ -25,6 +25,14 @@ target = None
 
 @task
 def frontdoor():
+    """
+    Load environment for frontdoor server
+
+    Loads environment for front door server.  Frontdoor server
+    is at the root domain.  All tile requests flow through
+    the front door. 
+    """
+
     global target
     target = ITTC_SERVERS['frontdoor']
     _print_target(target)
@@ -32,6 +40,14 @@ def frontdoor():
 
 @task
 def tilejet():
+    """
+    Load environment for tilejet server
+
+    Loads environment for tilejet server.  TileJet server
+    is between the front door and front-end tile server.
+    It caches select tiles into memory.
+    """
+
     global target
     target = ITTC_SERVERS['tilejet']
     _print_target(target)
@@ -39,6 +55,14 @@ def tilejet():
 
 @task
 def tileserver_frontend():
+    """
+    Load environment for front-end tile server.
+
+    Loads environment for front-end tile server.  The 
+    front-end tile server is an on-disk cache for tiles
+    that sits in front of the tileserver backend (tile renderer).
+    """
+
     global target
     target = ITTC_SERVERS['tileserver_frontend']
     _print_target(target)
@@ -46,6 +70,14 @@ def tileserver_frontend():
 
 @task
 def tileserver_backend():
+    """
+    Load environment for back-end tile server.
+
+    Loads environment for back-end tile server.  The 
+    back-end tile server renders tiles from on-disk
+    raw imagery.
+    """
+
     global target
     target = ITTC_SERVERS['tileserver_backend']
     _print_target(target)
@@ -53,6 +85,11 @@ def tileserver_backend():
 
 @task
 def restart_nginx(*args):
+    """
+    Restart NGINX server
+
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
@@ -63,6 +100,11 @@ def restart_nginx(*args):
 
 @task
 def restart_apache(*args):
+    """
+    Restart Apache2 Server
+
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
@@ -73,6 +115,11 @@ def restart_apache(*args):
 
 @task
 def restart_geoserver(*args):
+    """
+    Restart Tomcat 7 server, which contains GeoServer.
+
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
@@ -83,6 +130,12 @@ def restart_geoserver(*args):
 
 @task
 def inspect(*args):
+    """
+    Inspects server.
+
+    Prints operating system major release and disk information.
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
@@ -93,6 +146,21 @@ def inspect(*args):
 
 @task
 def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
+    """
+    Adds new cache config to /etc/tilecache.cfg
+
+    Adds new cache config to /etc/tilecache.cfg.  Publishes
+    new tileservice.
+
+    Options:
+    n = name of cache
+    d = human-readable description of new tile cache
+    ip = ip of source back-end tile server
+    l = layers parameter.  WMS parameter.
+    u = user for auth for backend server
+    p = password for auth for backend server
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
@@ -103,10 +171,21 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 @task
 def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None):
+    """
+    Uploads files to drop folder on remote server.
+
+    local: path to local files.  Supports wildcards.
+    drop: path on remote server to upload files to.
+    tries: # of tries to attempt for each file.
+    user: user owner of new remote file
+    group: group owner of new remote file
+    topic: AWS SNS topic to notify when complete.  Matches values in aws.py
+    """
+
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(local=local, drop=drop, tries=tries, user=user, group=group, topic=topic)
+            _upload_files(target, local=local, drop=drop, tries=tries, user=user, group=group, topic=topic)
     else:
         print "Need to set target first."
 
@@ -168,7 +247,7 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
             _restart_apache()
 
 
-def _upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None):
+def _upload_files(target, local=None, drop=None, tries=None, user=None, group=None, topic=None):
 
     local = _request_input("Local File Path", local, True)
     drop = _request_input("Remote Drop Folder", drop, True)
@@ -176,7 +255,12 @@ def _upload_files(local=None, drop=None, tries=None, user=None, group=None, topi
     user = _request_input("User", user, True)
     group = _request_input("Group", group, True)
 
-    topic = _request_input("Notify Topic", topic, False, options=AWS_SETTINGS['topics'])
+    topics = None
+    try:
+        topics = AWS_SETTINGS['topics']
+    except:
+        pass
+    topic = _request_input("Notify Topic", topic, False, options=topics)
 
     if _request_continue():
         sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
@@ -194,9 +278,11 @@ def _upload_files(local=None, drop=None, tries=None, user=None, group=None, topi
             rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group)
             if rf:
                 if topic:
-                    _notify_file_uploaded(topic, local_files[i], rf, 'host')
+                    _notify_file_uploaded(topic, local_files[i], rf, target['host'], True)
             else:
                 print "Aborted.  Could not upload "+local_files[i]+"."
+                if topic:
+                    _notify_file_uploaded(topic, local_files[i], rf, target['host'], False)
 
 
 def _upload_file(local_file, drop, md5_local, tries_left, user, group):

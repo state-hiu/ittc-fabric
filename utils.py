@@ -2,13 +2,22 @@ from fabric.api import env, sudo, run, cd, local, put, prefix, roles, execute, t
 from fabric.api import settings as fab_settings
 
 import hashlib
-
 import boto
+import datetime
+
 
 try:
     from aws import AWS_SETTINGS
 except:
-    print "Could not import aws.py"
+    print "Error: Could not import local aws module (aws.py)."
+
+def getTopic(alias):
+    t = None
+    try:
+        t = AWS_SETTINGS['topics'][alias]
+    except:
+        pass
+    return t
 
 def _build_env(target):
     e = {
@@ -47,13 +56,17 @@ def _request_input(question, value, required, options=None):
     if value:
         return value
     else:
+
         if options:
-            print question+":"
+            print question+" :"
+            print "* Options Below."+("  Enter to skip." if not required else "")
             for opt in options:
-                print "Option: "+opt
-            print "Selection:",
+                print "| -- "+opt
+            print "* Select option:",
         else:
-            print question+":",
+            print question+":",i
+
+
         if required:
             value = None
             while not value:
@@ -62,19 +75,21 @@ def _request_input(question, value, required, options=None):
                     print "Value required.  Please try again.  Ctrl+C to cancel."
                     print question+":",
                 elif options and (not value in options):
-                    print "Must select one of the options.  Please try again.  Ctrl+C to cancel."
+                    print "Must select one of the options.  Ctrl+C to cancel."
                     print question+":",
+                    value = None
             return value
+
         else:
-            value = raw_input()
-            if not value:
-                return value
-            else:
-                if value in options:
-                    return value
-                else:
-                    print "Must select one of the options.  Please try again.  Ctrl+C to cancel."
+            while not value:
+                value = raw_input()
+                if not value:
+                    return None
+                elif options and (not value in options):
+                    print "Must select one of the options.  Enter to skip.  Ctrl+C to cancel."
                     print question+":",
+                    value = None
+            return value
 
 
 def _request_continue():
@@ -100,8 +115,13 @@ def _calc_md5sum(filename):
     return md5
 
 
-def _notify_file_uploaded(topic, lf, rf, host):
-    msg = "File "+lf+" uploaded to "+rf+" on "+host+"."
+def _notify_file_uploaded(topic, lf, rf, host, success):
+    msg = None
+    now = datetime.datetime.now()
+    if success:
+        msg = "Success: File "+lf+" uploaded to "+rf+" on "+host+".\nTime: "+now.isoformat()
+    else:
+        msg = "Failed: Could not upload file "+lf+" to "+rf+" on "+host+".\nTime: "+now.isoformat()
     _notify_sns(topic, msg)
 
 
@@ -112,4 +132,5 @@ def _notify_error(topic, error):
 def _notify_sns(topic, msg):
     sns = boto.connect_sns(aws_access_key_id=AWS_SETTINGS['security']['AWS_ACCESS_KEY_ID'], aws_secret_access_key=AWS_SETTINGS['security']['AWS_SECRET_ACCESS_KEY'])
     if topic in AWS_SETTINGS['topics']:
-        res = sns.publish(AWS_SETTINGS['topics'][topic], msg)
+        print "Sending notification to {t} ...".format(t=getTopic(topic))
+        res = sns.publish(getTopic(topic), msg)
