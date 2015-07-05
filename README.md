@@ -82,6 +82,12 @@ fab tilejet restart
 fab tileserver_frontend add_cache
 fab tileserver_frontend restart_apache
 fab tileserver_backend restart_geoserver
+
+fab gn:stategeonode add_gmail
+fab gn:stategeonode add_analytics_dap:t=geoshape,a=DOS,sa=HIU
+fab gn:stategeonode add_analytics_ga:t=geoshape,c=UA-XXXX-1
+
+fab tileserver_backend upload_files:local=test.txt,drop=~/drop,tries=3,user=ubuntu,group=ubuntu
 ```
 
 ## Contributing
