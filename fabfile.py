@@ -255,7 +255,7 @@ def _upload_files(target, local=None, drop=None, tries=None, user=None, group=No
     tries = _request_input("Tries for each file", tries, True)
     user = _request_input("User", user, True)
     group = _request_input("Group", group, True)
-    sudo = _request_input("Sudo", sudo, True)
+    sudo = _request_input("Sudo", sudo, True, options={"yes":"yes, "no":"no"}) == "yes"
 
     topics = None
     try:
