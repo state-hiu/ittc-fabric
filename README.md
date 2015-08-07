@@ -15,12 +15,14 @@ The Imagery to the Crowd Initiative (ITTC) is a core initiative of the Humanitar
 
 Follow directions at http://www.fabfile.org/installing.html to install fabric.  On Ubuntu you can most easily run, `sudo apt-get install fabric`.
 
-You'll also need to install fabtools with `sudo pip install fabtools`.
+You'll also need to install [fabtools](https://github.com/ronnix/fabtools) with `sudo pip install fabtools`.
+
+You'll also need to install [boto](https://github.com/boto/boto), the python AWS library, with `sudo pip install boto`.
 
 Create a `servers.py` file in the same directory as the `fabfile.py`.  `servers.py` is in `.gitignore` so will not be committed.  This file includes connection and other information, so that fab commands are streamlined.
 
 ```javascript
-IITC = {
+ITTC_SERVERS = {
     "frontdoor": {
         "ident":  "~/auth/keys/frontdoor.pem",
         "host": "frontdoor.example.com",
