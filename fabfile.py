@@ -170,7 +170,7 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 
 @task
-def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None, sudo=None):
+def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None, use_sudo=None):
     """
     Uploads files to drop folder on remote server.
 
@@ -180,13 +180,13 @@ def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic
     user: user owner of new remote file
     group: group owner of new remote file
     topic: AWS SNS topic to notify when complete.  Matches values in aws.py
-    sudo: Use sudo
+    use_sudo: Use sudo
     """
 
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(target, local=local, drop=drop, tries=tries, user=user, group=group, topic=topic, sudo=sudo)
+            _upload_files(target, local=local, drop=drop, tries=tries, user=user, group=group, topic=topic, use_sudo=use_sudo)
     else:
         print "Need to set target first."
 
@@ -248,14 +248,14 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
             _restart_apache()
 
 
-def _upload_files(target, local=None, drop=None, tries=None, user=None, group=None, topic=None, sudo=None):
+def _upload_files(target, local=None, drop=None, tries=None, user=None, group=None, topic=None, use_sudo=None):
 
     local = _request_input("Local File Path", local, True)
     drop = _request_input("Remote Drop Folder", drop, True)
     tries = _request_input("Tries for each file", tries, True)
     user = _request_input("User", user, True)
     group = _request_input("Group", group, True)
-    sudo = _request_input("Sudo", sudo, True, options={"yes":"yes", "no":"no"}) == "yes"
+    use_sudo = _request_input("Use Sudo", use_sudo, True, options={"yes":"yes", "no":"no"}) == "yes"
 
     topics = None
     try:
@@ -277,7 +277,7 @@ def _upload_files(target, local=None, drop=None, tries=None, user=None, group=No
 
         for i in range(len(local_files)):
             print "Uploading "+local_files[i]+"..."
-            rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group, sudo)
+            rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group, use_sudo)
             if rf:
                 if topic:
                     _notify_file_uploaded(topic, local_files[i], rf, target['host'], True)
@@ -287,8 +287,8 @@ def _upload_files(target, local=None, drop=None, tries=None, user=None, group=No
                     _notify_file_uploaded(topic, local_files[i], rf, target['host'], False)
 
 
-def _upload_file(local_file, drop, md5_local, tries_left, user, group, sudo):
-    remote_files = put(local_file, drop, mode='0444', use_sudo=sudo)
+def _upload_file(local_file, drop, md5_local, tries_left, user, group, use_sudo):
+    remote_files = put(local_file, drop, mode='0444', use_sudo=use_sudo)
     if len(remote_files) == 1:
         rf = remote_files[0]
         if rf in remote_files.failed:
@@ -297,7 +297,7 @@ def _upload_file(local_file, drop, md5_local, tries_left, user, group, sudo):
                 return None
             else:
                 print "Upload failed... trying again.  "+str(tries_left)+" tries left."
-                return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group, sudo)
+                return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group, use_sudo)
         else:
             md5_remote = md5sum(rf)
             if md5_local == md5_remote:
@@ -313,4 +313,4 @@ def _upload_file(local_file, drop, md5_local, tries_left, user, group, sudo):
                     return None
                 else:
                     print "Upload failed... trying again.  "+str(tries_left)+" tries left."
-                    return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group, sudo)
+                    return _upload_file(local_file, drop, md5_local, tries_left - 1, user, group, use_sudo)
