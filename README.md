@@ -6,10 +6,10 @@ ITTC Fabric Script (ittc-fabric)
 Fabric script for managing ITTC infrastructure.
 
 ### CyberGIS
-The Humanitarian Information Unit has been developing a sophisticated geographic computing infrastructure referred to as the CyberGIS. The CyberGIS provides highly available, scalable, reliable, and timely geospatial services capable of supporting multiple concurrent projects.  The CyberGIS relies on primarily open source projects, such as PostGIS, GeoServer, GDAL, GeoGit, OGR, and OpenLayers.  The name CyberGIS is dervied from the term geospatial cyberinfrastructure.
+The [Humanitarian Information Unit](https://hiu.state.gov/Pages/Home.aspx) has been developing a sophisticated geographic computing infrastructure referred to as the CyberGIS. The CyberGIS provides highly available, scalable, reliable, and timely geospatial services capable of supporting multiple concurrent projects.  The CyberGIS relies on primarily open source projects, such as PostGIS, GeoServer, GDAL, GeoGit, OGR, and OpenLayers.  The name CyberGIS is dervied from the term geospatial cyberinfrastructure.
 
 ### Imagery to the Crowd
-The Imagery to the Crowd Initiative (ITTC) is a core initiative of the Humanitarian Information Unit.  Through ITTC, HIU publishes high-resolution commercial satellite imagery, purchased by the United States Government, in a web-based format that can be easily mapped by volunteers.  These imagery services are used by volunteers to add baseline geographic data into OpenStreetMap, such as roads and buildings.  The imagery processing pipeline is built from opensource applications, such as TileCache and GeoServer.  All tools developed by HIU for ITTC, are also open source, such as this repo.
+The Imagery to the Crowd Initiative (ITTC) is a core initiative of the [Humanitarian Information Unit](https://hiu.state.gov/Pages/Home.aspx).  Through ITTC, HIU publishes high-resolution commercial satellite imagery, purchased by the United States Government, in a web-based format that can be easily mapped by volunteers.  These imagery services are used by volunteers to add baseline geographic data into OpenStreetMap, such as roads and buildings.  The imagery processing pipeline is built from opensource applications, such as TileCache and GeoServer.  All tools developed by HIU for ITTC, are also open source, such as this repo.
 
 ## Installation
 
@@ -26,22 +26,26 @@ ITTC_SERVERS = {
     "frontdoor": {
         "ident":  "~/auth/keys/frontdoor.pem",
         "host": "frontdoor.example.com",
-        "user": "ubuntu"
+        "user": "ubuntu",
+        "name": "Front Door"
     },
     "tilejet": {
         "ident":  "~/auth/keys/tilejet.pem",
         "host": "tilejet.example.com",
-        "user": "ubuntu"
+        "user": "ubuntu",
+        "name": "TileJet Proxy"
     },
     "tileserver_frontend": {
         "ident":  "~/auth/keys/tileserver-frontend.pem",
         "host": "tileserver-frontend.example.com",
-        "user": "ubuntu"
+        "user": "ubuntu",
+        "name": "Tile Server Frontend"
     },
     "tileserver_backend": {
         "ident":  "~/auth/keys/tileserver-backend.pem",
         "host": "tileserver-backend.example.com",
-        "user": "ubuntu"
+        "user": "ubuntu",
+        "name": "Tile Server Backend"
     }
 }
 ```
@@ -86,11 +90,6 @@ fab tilejet restart
 fab tileserver_frontend add_cache
 fab tileserver_frontend restart_apache
 fab tileserver_backend restart_geoserver
-
-fab gn:stategeonode add_gmail
-fab gn:stategeonode add_analytics_dap:t=geoshape,a=DOS,sa=HIU
-fab gn:stategeonode add_analytics_ga:t=geoshape,c=UA-XXXX-1
-
 fab tileserver_backend upload_files:local=test.txt,drop=~/drop,tries=3,user=ubuntu,group=ubuntu
 ```
 
