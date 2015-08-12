@@ -108,11 +108,15 @@ def _append_to_file(lines, filename):
         sudo(c)
 
 
-def _calc_md5sum(filename):
-    md5 = None
+def _calc_md5sum(filename, block_size=128**4):
+    md5 = hashlib.md5()
     with open (filename, "r") as f:
-        md5 = hashlib.md5(f.read()).hexdigest()
-    return md5
+        while True:
+            data = f.read(block_size)
+            if not data:
+                break
+            md5.update(data)
+    return md5.hexdigest()
 
 
 def _notify_file_uploaded(topic, lf, rf, host, success):
