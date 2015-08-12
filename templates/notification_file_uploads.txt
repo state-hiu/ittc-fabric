@@ -1,0 +1,7 @@
+Files Uploaded to {{target}}
+###########
+Host: {{host}}
+Time: {{now}}
+###########
+Success: {{count_success}}
+Failed: {{count_failed}}

@@ -4,12 +4,22 @@ from fabric.api import settings as fab_settings
 import hashlib
 import boto
 import datetime
-
+from glob import glob
 
 try:
     from aws import AWS_SETTINGS
 except:
     print "Error: Could not import local aws module (aws.py)."
+
+
+def _parse_manifest(manifest):
+    paths = []
+    lines = []
+    with open (filename, "r") as f:
+        lines = f.readlines
+    for line in lines:
+        paths.extend(glob(line))
+    return paths
 
 def getTopic(alias):
     t = None
@@ -119,11 +129,34 @@ def _calc_md5sum(filename, block_size=128**4):
     return md5.hexdigest()
 
 
-def _notify_file_uploaded(topic, lf, rf, host, success):
+def _notify_file_uploads(topic, count_success, count_failed, target, host):
+    msg = None
+    now = datetime.datetime.now()
+    t = _load_template("templates/notification_file_uploads.txt")
+    if t:
+        msg = t.replace("{{target}}", target)
+        msg = t.replace("{{host}}", host)
+        msg = t.replace("{{count_success}}", str(count_success))
+        msg = t.replace("{{count_failed}}", str(count_failed))
+        msg = t.replace("{{now}}", now.isoformat())
+    else:
+        msg = "Files uploaded to "+host+".\nTime: "+now.isoformat()+"\nSuccess: "+str(count_success)+"\nFailed: "+str(count_failed)
+    _notify_sns(topic, msg)
+
+
+def _notify_file_uploaded(topic, lf, rf, target, host, success):
     msg = None
     now = datetime.datetime.now()
     if success:
-        msg = "Success: File "+lf+" uploaded to "+rf+" on "+host+".\nTime: "+now.isoformat()
+        t = _load_template("templates/notification_file_uploaded_success.txt")
+        if t:
+            msg = t.replace("{{target}}", target)
+            msg = t.replace("{{host}}", host)
+            msg = t.replace("{{lf}}", lf)
+            msg = t.replace("{{rf}}", rf)
+            msg = t.replace("{{now}}", now.isoformat())
+        else:
+            msg = "Success: File "+lf+" uploaded to "+rf+" on "+host+".\nTime: "+now.isoformat()
     else:
         msg = "Failed: Could not upload file "+lf+" to "+rf+" on "+host+".\nTime: "+now.isoformat()
     _notify_sns(topic, msg)

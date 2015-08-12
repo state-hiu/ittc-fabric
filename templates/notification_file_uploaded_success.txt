@@ -1,0 +1,7 @@
+File Uploaded to {{target}}
+###########
+Host: {{host}}
+Local File: {{lf}}
+Remote File: {{rf}}
+###########
+Time: {{now}}

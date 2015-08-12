@@ -10,7 +10,7 @@ import datetime
 import hashlib
 from servers import ITTC_SERVERS
 
-from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template, _calc_md5sum, _notify_file_uploaded
+from utils import _build_env, _print_target, _cron_command, _request_input, _request_continue, _append_to_file, _load_template, _calc_md5sum, _notify_file_uploaded, _parse_manifest, _notify_file_uploads
 
 try:
     from aws import AWS_SETTINGS
@@ -170,15 +170,17 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 
 @task
-def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic=None, use_sudo=None):
+def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, topic=None, use_sudo=None):
     """
     Uploads files to drop folder on remote server.
 
     local: path to local files.  Supports wildcards.
+    manifest: path to local manifest file that includes a local file path for each line.  Supports wildcards.
     drop: path on remote server to upload files to.
     tries: # of tries to attempt for each file.
     user: user owner of new remote file
     group: group owner of new remote file
+    notify_level: notification_level.  0 = No notification.  1 = every file.  2 = one aggerate report at end of job.
     topic: AWS SNS topic to notify when complete.  Matches values in aws.py
     use_sudo: Use sudo
     """
@@ -186,7 +188,7 @@ def upload_files(local=None, drop=None, tries=None, user=None, group=None, topic
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(target, local=local, drop=drop, tries=tries, user=user, group=group, topic=topic, use_sudo=use_sudo)
+            _upload_files(target, local=local, manifest=manifest, drop=drop, tries=tries, user=user, group=group, notify_level, topic=topic, use_sudo=use_sudo)
     else:
         print "Need to set target first."
 
@@ -248,14 +250,19 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
             _restart_apache()
 
 
-def _upload_files(target, local=None, drop=None, tries=None, user=None, group=None, topic=None, use_sudo=None):
+def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, topic=None, use_sudo=None):
 
-    local = _request_input("Local File Path", local, True)
+    while (local is None)and (manifest is None):
+        local = _request_input("Local File Path", local, False)
+        manifest = _request_input("Manifest Path", manifest, False)
+        print "Either local or manifest required.  Please try again.  Ctrl+C to cancel."
+        
     drop = _request_input("Remote Drop Folder", drop, True)
     tries = _request_input("Tries for each file", tries, True)
     user = _request_input("User", user, True)
     group = _request_input("Group", group, True)
     use_sudo = _request_input("Use Sudo", use_sudo, True, options={"yes":"yes", "no":"no"}) == "yes"
+    notify_level = int(_request_input("Notification Level", notify_level, True, options=["0", "1", "2"]))
 
     topics = None
     try:
@@ -266,7 +273,7 @@ def _upload_files(target, local=None, drop=None, tries=None, user=None, group=No
 
     if _request_continue():
         sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
-        local_files = glob(local)
+        local_files = glob(local) if local else _parse_manifest(manifest)
         md5_list = []
         for f in local_files:
             md5_list.append(_calc_md5sum(f))
@@ -275,17 +282,24 @@ def _upload_files(target, local=None, drop=None, tries=None, user=None, group=No
         for i in range(len(local_files)):
             print local_files[i]+": "+md5_list[i]
 
+        count_success = 0
+        count_failed = 0
+
         for i in range(len(local_files)):
             print "Uploading "+local_files[i]+"..."
             rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group, use_sudo)
             if rf:
-                if topic:
-                    _notify_file_uploaded(topic, local_files[i], rf, target['host'], True)
+                count_success += 1
+                if notify_level==2 and topic:
+                    _notify_file_uploaded(topic, local_files[i], rf, target['name'], target['host'], True)
             else:
+                count_failed += 1
                 print "Aborted.  Could not upload "+local_files[i]+"."
-                if topic:
-                    _notify_file_uploaded(topic, local_files[i], rf, target['host'], False)
+                if notify_level==2 and topic:
+                    _notify_file_uploaded(topic, local_files[i], rf, target['name'], target['host'], False)
 
+        if notify_level==1 or notify_level==2:
+            _notify_file_uploads(topic, count_success, count_failed, target['name'], target['host'])
 
 def _upload_file(local_file, drop, md5_local, tries_left, user, group, use_sudo):
     remote_files = put(local_file, drop, mode='0444', use_sudo=use_sudo)
