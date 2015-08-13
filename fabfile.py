@@ -274,6 +274,8 @@ def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user
     if _request_continue():
         sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
         local_files = glob(local) if local else _parse_manifest(manifest)
+        print manifest
+        print local_files
         md5_list = []
         for f in local_files:
             md5_list.append(_calc_md5sum(f))
