@@ -252,7 +252,7 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, topic=None, use_sudo=None):
 
-    while (local is None)and (manifest is None):
+    while (local is None) and (manifest is None):
         local = _request_input("Local File Path", local, False)
         manifest = _request_input("Manifest Path", manifest, False)
         print "Either local or manifest required.  Please try again.  Ctrl+C to cancel."
