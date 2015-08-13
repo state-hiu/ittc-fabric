@@ -188,7 +188,7 @@ def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, gr
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(target, local=local, manifest=manifest, drop=drop, tries=tries, user=user, group=group, notify_level, topic=topic, use_sudo=use_sudo)
+            _upload_files(target, local=local, manifest=manifest, drop=drop, tries=tries, user=user, group=group, notify_level=notify_level, topic=topic, use_sudo=use_sudo)
     else:
         print "Need to set target first."
 
