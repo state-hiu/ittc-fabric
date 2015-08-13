@@ -74,7 +74,7 @@ def _request_input(question, value, required, options=None):
                 print "| -- "+opt
             print "* Select option:",
         else:
-            print question+":",i
+            print question+":",
 
 
         if required:
