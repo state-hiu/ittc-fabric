@@ -18,8 +18,6 @@ def _parse_manifest(filename):
     with open (filename, "r") as f:
         lines = f.readlines()
     for line in lines:
-        print line
-        print glob(line.strip())
         paths.extend(glob(line.strip()))
     return paths
 
