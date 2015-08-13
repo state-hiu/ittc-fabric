@@ -16,7 +16,7 @@ def _parse_manifest(filename):
     paths = []
     lines = []
     with open (filename, "r") as f:
-        lines = f.readlines
+        lines = f.readlines()
     for line in lines:
         paths.extend(glob(line))
     return paths
