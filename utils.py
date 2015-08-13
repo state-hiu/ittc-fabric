@@ -12,7 +12,7 @@ except:
     print "Error: Could not import local aws module (aws.py)."
 
 
-def _parse_manifest(manifest):
+def _parse_manifest(filename):
     paths = []
     lines = []
     with open (filename, "r") as f:
