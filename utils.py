@@ -135,10 +135,10 @@ def _notify_file_uploads(topic, count_success, count_failed, target, host):
     t = _load_template("notification_file_uploads.txt")
     if t:
         msg = t.replace("{{target}}", target)
-        msg = t.replace("{{host}}", host)
-        msg = t.replace("{{count_success}}", str(count_success))
-        msg = t.replace("{{count_failed}}", str(count_failed))
-        msg = t.replace("{{now}}", now.isoformat())
+        msg = msg.replace("{{host}}", host)
+        msg = msg.replace("{{count_success}}", str(count_success))
+        msg = msg.replace("{{count_failed}}", str(count_failed))
+        msg = msg.replace("{{now}}", now.isoformat())
     else:
         msg = "Files uploaded to "+host+".\nTime: "+now.isoformat()+"\nSuccess: "+str(count_success)+"\nFailed: "+str(count_failed)
     _notify_sns(topic, msg)
@@ -151,10 +151,10 @@ def _notify_file_uploaded(topic, lf, rf, target, host, success):
         t = _load_template("notification_file_uploaded_success.txt")
         if t:
             msg = t.replace("{{target}}", target)
-            msg = t.replace("{{host}}", host)
-            msg = t.replace("{{lf}}", lf)
-            msg = t.replace("{{rf}}", rf)
-            msg = t.replace("{{now}}", now.isoformat())
+            msg = msg.replace("{{host}}", host)
+            msg = msg.replace("{{lf}}", lf)
+            msg = msg.replace("{{rf}}", rf)
+            msg = msg.replace("{{now}}", now.isoformat())
         else:
             msg = "Success: File "+lf+" uploaded to "+rf+" on "+host+".\nTime: "+now.isoformat()
     else:
