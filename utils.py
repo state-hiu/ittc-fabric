@@ -132,7 +132,7 @@ def _calc_md5sum(filename, block_size=128**4):
 def _notify_file_uploads(topic, count_success, count_failed, target, host):
     msg = None
     now = datetime.datetime.now()
-    t = _load_template("templates/notification_file_uploads.txt")
+    t = _load_template("notification_file_uploads.txt")
     if t:
         msg = t.replace("{{target}}", target)
         msg = t.replace("{{host}}", host)
@@ -148,7 +148,7 @@ def _notify_file_uploaded(topic, lf, rf, target, host, success):
     msg = None
     now = datetime.datetime.now()
     if success:
-        t = _load_template("templates/notification_file_uploaded_success.txt")
+        t = _load_template("notification_file_uploaded_success.txt")
         if t:
             msg = t.replace("{{target}}", target)
             msg = t.replace("{{host}}", host)
