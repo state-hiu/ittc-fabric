@@ -180,7 +180,7 @@ def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, gr
     tries: # of tries to attempt for each file.
     user: user owner of new remote file
     group: group owner of new remote file
-    notify_level: notification_level.  0 = No notification.  1 = every file.  2 = one aggerate report at end of job.
+    notify_level: notification_level.  0 = No notification.  1 = one aggregate report at end of job.  2 = one aggregate report plus reports for each file.
     topic: AWS SNS topic to notify when complete.  Matches values in aws.py
     use_sudo: Use sudo
     """
