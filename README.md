@@ -56,10 +56,12 @@ If you'd like to receive notifications after tasks are completed via AWS Simple 
 
 ```
 AWS_SETTINGS = {
-    "security": {
-        "AWS_ACCESS_KEY_ID": "XXX",
-        "AWS_SECRET_ACCESS_KEY": "XXX+XXX"
-    },
+    "iam": {
+        "testuser": {
+            "AWS_ACCESS_KEY_ID": "XXX",
+            "AWS_SECRET_ACCESS_KEY": "XXX+XXX"
+        }
+    }
     "topics": {
         "test":"arn:aws:sns:us-XXX-X:XXX:XXX"
     }
