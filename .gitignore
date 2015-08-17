@@ -59,6 +59,7 @@ target/
 # Custom
 servers.py
 aws.py
+manifest.txt
 test.txt
 test1.txt
 test2.txt

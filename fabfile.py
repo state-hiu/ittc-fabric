@@ -170,7 +170,7 @@ def add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
 
 
 @task
-def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, topic=None, use_sudo=None):
+def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, iam=None, topic=None, use_sudo=None):
     """
     Uploads files to drop folder on remote server.
 
@@ -181,6 +181,7 @@ def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, gr
     user: user owner of new remote file
     group: group owner of new remote file
     notify_level: notification_level.  0 = No notification.  1 = one aggregate report at end of job.  2 = one aggregate report plus reports for each file.
+    iam: AWS IAM user to use for notifications.  Matches values in aws.py
     topic: AWS SNS topic to notify when complete.  Matches values in aws.py
     use_sudo: Use sudo
     """
@@ -188,7 +189,7 @@ def upload_files(local=None, manifest=None, drop=None, tries=None, user=None, gr
     global target
     if target:
         with fab_settings(** _build_env(target)):
-            _upload_files(target, local=local, manifest=manifest, drop=drop, tries=tries, user=user, group=group, notify_level=notify_level, topic=topic, use_sudo=use_sudo)
+            _upload_files(target, local=local, manifest=manifest, drop=drop, tries=tries, user=user, group=group, iam=iam, notify_level=notify_level, topic=topic, use_sudo=use_sudo)
     else:
         print "Need to set target first."
 
@@ -250,11 +251,15 @@ def _add_cache(n=None, d=None, ip=None, l=None, u=None, p=None):
             _restart_apache()
 
 
-def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user=None, group=None, notify_level=None, topic=None, use_sudo=None):
+def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user=None, group=None, iam=None, notify_level=None, topic=None, use_sudo=None):
 
-    while (local is None) and (manifest is None):
-        local = _request_input("Local File Path", local, False)
-        manifest = _request_input("Manifest Path", manifest, False)
+    while True:
+        if (not local) and (not manifest):
+            local = _request_input("Local File Path", local, False)
+        if (not local) and (not manifest):
+            manifest = _request_input("Manifest Path", manifest, False)
+        if local or manifest:
+            break
         print "Either local or manifest required.  Please try again.  Ctrl+C to cancel."
         
     drop = _request_input("Remote Drop Folder", drop, True)
@@ -264,12 +269,26 @@ def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user
     use_sudo = _request_input("Use Sudo", use_sudo, True, options={"yes":"yes", "no":"no"}) == "yes"
     notify_level = int(_request_input("Notification Level", notify_level, True, options=["0", "1", "2"]))
 
+    iam_users = None
+    try:
+        iam_users = AWS_SETTINGS['iam']
+    except:
+        pass
+
     topics = None
     try:
         topics = AWS_SETTINGS['topics']
     except:
         pass
-    topic = _request_input("Notify Topic", topic, False, options=topics)
+
+    while True:
+        if not iam:
+            iam = _request_input("IAM User", iam, False, options=iam_users)
+        if not topic:
+            topic = _request_input("Notify Topic", topic, False, options=topics)
+        if (bool(iam) or bool(topic)) == (bool(iam) and bool(topic)): 
+            break
+        print "If sending a notification, both iam and topic are required.  Please try again.  Ctrl+C to cancel."
 
     if _request_continue():
         sudo("[ -d {d} ] || ( mkdir {d} ; chown -R {u}:{g} {d} ) ".format(d=drop,u=user,g=group))
@@ -284,24 +303,26 @@ def _upload_files(target, local=None, manifest=None, drop=None, tries=None, user
         for i in range(len(local_files)):
             print local_files[i]+": "+md5_list[i]
 
+        files_list = []
         count_success = 0
         count_failed = 0
 
         for i in range(len(local_files)):
             print "Uploading "+local_files[i]+"..."
             rf = _upload_file(local_files[i], drop, md5_list[i], int(tries), user, group, use_sudo)
+            files_list.append({'lf':local_files[i],'rf':(rf if rf else 'XXX'),'status':(rf is not None)})
             if rf:
                 count_success += 1
-                if notify_level==2 and topic:
-                    _notify_file_uploaded(topic, local_files[i], rf, target['name'], target['host'], True)
+                if iam and topic and notify_level==2:
+                    _notify_file_uploaded(iam, topic, local_files[i], rf, target['name'], target['host'], True)
             else:
                 count_failed += 1
                 print "Aborted.  Could not upload "+local_files[i]+"."
-                if notify_level==2 and topic:
-                    _notify_file_uploaded(topic, local_files[i], rf, target['name'], target['host'], False)
+                if iam and topic and notify_level==2:
+                    _notify_file_uploaded(iam, topic, local_files[i], rf, target['name'], target['host'], False)
 
-        if notify_level==1 or notify_level==2:
-            _notify_file_uploads(topic, count_success, count_failed, target['name'], target['host'])
+        if iam and topic and (notify_level==1 or notify_level==2):
+            _notify_file_uploads(iam, topic, count_success, count_failed, target['name'], target['host'], files_list)
 
 def _upload_file(local_file, drop, md5_local, tries_left, user, group, use_sudo):
     remote_files = put(local_file, drop, mode='0444', use_sudo=use_sudo)

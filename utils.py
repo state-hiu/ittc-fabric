@@ -129,7 +129,7 @@ def _calc_md5sum(filename, block_size=128**4):
     return md5.hexdigest()
 
 
-def _notify_file_uploads(topic, count_success, count_failed, target, host):
+def _notify_file_uploads(iam, topic, count_success, count_failed, target, host, files):
     msg = None
     now = datetime.datetime.now()
     t = _load_template("notification_file_uploads.txt")
@@ -139,12 +139,19 @@ def _notify_file_uploads(topic, count_success, count_failed, target, host):
         msg = msg.replace("{{count_success}}", str(count_success))
         msg = msg.replace("{{count_failed}}", str(count_failed))
         msg = msg.replace("{{now}}", now.isoformat())
+        t2_success = _load_template("notification_file_uploads_entry_success.txt")
+        t2_failed = _load_template("notification_file_uploads_entry_failed.txt")
+        for f in files:
+            if f['status']:
+                msg += t2_success.replace("{{lf}}",f['lf']).replace("{{rf}}",f['rf'])
+            else:
+                msg += t2_failed.replace("{{lf}}",f['lf']).replace("{{rf}}",f['rf'])
     else:
         msg = "Files uploaded to "+host+".\nTime: "+now.isoformat()+"\nSuccess: "+str(count_success)+"\nFailed: "+str(count_failed)
-    _notify_sns(topic, msg)
+    _notify_sns(iam, topic, msg)
 
 
-def _notify_file_uploaded(topic, lf, rf, target, host, success):
+def _notify_file_uploaded(iam, topic, lf, rf, target, host, success):
     msg = None
     now = datetime.datetime.now()
     if success:
@@ -159,15 +166,18 @@ def _notify_file_uploaded(topic, lf, rf, target, host, success):
             msg = "Success: File "+lf+" uploaded to "+rf+" on "+host+".\nTime: "+now.isoformat()
     else:
         msg = "Failed: Could not upload file "+lf+" to "+rf+" on "+host+".\nTime: "+now.isoformat()
-    _notify_sns(topic, msg)
+    _notify_sns(iam, topic, msg)
 
 
-def _notify_error(topic, error):
-    _notify_sns(topic, error)
+def _notify_error(iam, topic, error):
+    _notify_sns(iam, topic, error)
 
 
-def _notify_sns(topic, msg):
-    sns = boto.connect_sns(aws_access_key_id=AWS_SETTINGS['security']['AWS_ACCESS_KEY_ID'], aws_secret_access_key=AWS_SETTINGS['security']['AWS_SECRET_ACCESS_KEY'])
+def _notify_sns(iam, topic, msg):
+    sns = boto.connect_sns(
+        aws_access_key_id=AWS_SETTINGS['iam'][iam]['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=AWS_SETTINGS['iam'][iam]['AWS_SECRET_ACCESS_KEY'])
+
     if topic in AWS_SETTINGS['topics']:
         print "Sending notification to {t} ...".format(t=getTopic(topic))
         res = sns.publish(getTopic(topic), msg)
